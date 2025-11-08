@@ -316,11 +316,14 @@ function CanvasPage({ user, onLogout }) {
             };
             onUpdate({ ...shape, ...finalBounds });
           }
-          app.stage.off('globalpointermove', onResizeMove);
+          app.stage.off('pointermove', onResizeMove);
+          app.stage.off('pointerup', stopResize);
+          app.stage.off('pointerupoutside', stopResize);
         };
 
-        app.stage.on('globalpointermove', onResizeMove);
-        app.stage.once('pointerup', stopResize);
+        app.stage.on('pointermove', onResizeMove);
+        app.stage.on('pointerup', stopResize);
+        app.stage.on('pointerupoutside', stopResize);
       });
 
       app.stage.addChild(handleGraphics);
@@ -491,11 +494,14 @@ function CanvasPage({ user, onLogout }) {
               height: sprite.height 
             });
           }
-          app.stage.off('globalpointermove', onResizeMove);
+          app.stage.off('pointermove', onResizeMove);
+          app.stage.off('pointerup', stopResize);
+          app.stage.off('pointerupoutside', stopResize);
         };
 
-        app.stage.on('globalpointermove', onResizeMove);
-        app.stage.once('pointerup', stopResize);
+        app.stage.on('pointermove', onResizeMove);
+        app.stage.on('pointerup', stopResize);
+        app.stage.on('pointerupoutside', stopResize);
       });
 
       app.stage.addChild(handleGraphics);
@@ -569,13 +575,17 @@ function CanvasPage({ user, onLogout }) {
 
   const setupInteractions = (app) => {
     app.stage.on('pointerdown', (e) => {
+      const clickedOnStageBackground = e.target === app.stage;
+
       // Deselect if clicking on empty stage
-      if (selectedItemRef.current && e.target === app.stage) {
+      if (clickedOnStageBackground && selectedItemRef.current) {
         setSelectedItem(null);
+        selectedItemRef.current = null;
       }
       
-      // Only start drawing if no item is selected and tool is active
-      if ((toolRef.current === 'rectangle' || toolRef.current === 'circle') && !selectedItemRef.current) {
+      // Only start drawing if no item is selected, tool is active, and user clicked empty canvas
+      const isDrawingToolActive = toolRef.current === 'rectangle' || toolRef.current === 'circle';
+      if (clickedOnStageBackground && isDrawingToolActive && !selectedItemRef.current) {
         isDrawingRef.current = true;
         startPosRef.current = { x: e.data.global.x, y: e.data.global.y };
         currentShapeRef.current = new PIXI.Graphics();
@@ -724,12 +734,12 @@ function CanvasPage({ user, onLogout }) {
         graphics.on('pointerdown', (e) => {
           e.stopPropagation();
           setSelectedItem(shape.id);
+          selectedItemRef.current = shape.id;
           
           // Use current graphics position, not state position
           const currentX = graphics.x || shape.x;
           const currentY = graphics.y || shape.y;
           
-          isInteractingRef.current = true;
           dragStatesRef.current[shape.id] = {
             isDragging: true,
             offset: {
@@ -738,12 +748,17 @@ function CanvasPage({ user, onLogout }) {
             },
             startX: currentX,
             startY: currentY,
+            hasMoved: false,
           };
 
           const onPointerMove = (e) => {
             if (!app.stage) return;
             const dragState = dragStatesRef.current[shape.id];
             if (dragState && dragState.isDragging && !isDrawingRef.current) {
+              if (!dragState.hasMoved) {
+                dragState.hasMoved = true;
+                isInteractingRef.current = true;
+              }
               const newX = e.data.global.x - dragState.offset.x;
               const newY = e.data.global.y - dragState.offset.y;
               // Direct position update for smooth dragging
@@ -815,12 +830,15 @@ function CanvasPage({ user, onLogout }) {
                 )
               );
             }
-            app.stage.off('globalpointermove', onPointerMove);
+            app.stage.off('pointermove', onPointerMove);
+            app.stage.off('pointerup', stopDrag);
+            app.stage.off('pointerupoutside', stopDrag);
           };
 
           if (app.stage) {
-            app.stage.on('globalpointermove', onPointerMove);
-            app.stage.once('pointerup', stopDrag);
+            app.stage.on('pointermove', onPointerMove);
+            app.stage.on('pointerup', stopDrag);
+            app.stage.on('pointerupoutside', stopDrag);
           }
         });
       }
@@ -956,24 +974,29 @@ function CanvasPage({ user, onLogout }) {
         sprite.on('pointerdown', (e) => {
           e.stopPropagation();
           setSelectedItem(img.id);
+          selectedItemRef.current = img.id;
           
           // Use current sprite position, not state position
           const currentX = sprite.x || img.x;
           const currentY = sprite.y || img.y;
           
-          isInteractingRef.current = true;
           dragStatesRef.current[img.id] = {
             isDragging: true,
             offset: {
               x: e.data.global.x - currentX,
               y: e.data.global.y - currentY,
             },
+            hasMoved: false,
           };
 
           const onPointerMove = (e) => {
             if (!app.stage) return;
             const dragState = dragStatesRef.current[img.id];
             if (dragState && dragState.isDragging && !isDrawingRef.current) {
+              if (!dragState.hasMoved) {
+                dragState.hasMoved = true;
+                isInteractingRef.current = true;
+              }
               const newX = e.data.global.x - dragState.offset.x;
               const newY = e.data.global.y - dragState.offset.y;
               // Direct position update for smooth dragging
@@ -1036,12 +1059,15 @@ function CanvasPage({ user, onLogout }) {
                 )
               );
             }
-            app.stage.off('globalpointermove', onPointerMove);
+            app.stage.off('pointermove', onPointerMove);
+            app.stage.off('pointerup', stopDragSprite);
+            app.stage.off('pointerupoutside', stopDragSprite);
           };
 
           if (app.stage) {
-            app.stage.on('globalpointermove', onPointerMove);
-            app.stage.once('pointerup', stopDragSprite);
+            app.stage.on('pointermove', onPointerMove);
+            app.stage.on('pointerup', stopDragSprite);
+            app.stage.on('pointerupoutside', stopDragSprite);
           }
         });
 
